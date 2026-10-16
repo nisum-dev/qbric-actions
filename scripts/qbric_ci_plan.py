@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the run plan QBRIC made for this run (plan schema 1) and write it to a file.
+"""Fetch the run plan QBRIC made for this run and write it to a file, for the thin runner (qbric_ci_run.py).
 
 Configured by environment variables, standard library only. Unlike the callback, a plan that cannot
 be fetched fails the job: without it there is nothing to run. The plan holds the run's variable
@@ -22,6 +22,7 @@ import urllib.error
 import urllib.request
 
 import qbric_ci_callback as callback
+from qbric_ci_run import SCHEMA
 
 REQUIRED = ["QBRIC_API_URL", "QBRIC_TENANT_ID", "QBRIC_CORRELATION_ID", "QBRIC_PLAN_FILE"]
 
@@ -50,8 +51,8 @@ def fetch(url, token, attempts=3):
 
 def write_plan(path, text):
     plan = json.loads(text)
-    if plan.get("schemaVersion") != 1:
-        raise RuntimeError(f"QBRIC sent plan schema {plan.get('schemaVersion')}; this action reads schema 1")
+    if plan.get("schemaVersion") != SCHEMA:
+        raise RuntimeError(f"QBRIC sent plan schema {plan.get('schemaVersion')}; this action reads schema {SCHEMA}")
     target = pathlib.Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

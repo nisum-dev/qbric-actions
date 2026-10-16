@@ -2,8 +2,8 @@
 # datapoint's variables, the order, the shared login and the exact commands) and this workflow runs
 # that plan with the thin runner in qbric-actions; no QBRIC binary is downloaded. Copy it to
 # .github/workflows/qbric-ci.yml and set the repository variables QBRIC_API_URL and QBRIC_TENANT_ID.
-# QBRIC_RUNS_ON (optional) picks the runner for the tests, e.g. a self-hosted one that can reach an
-# internal API; the default is ubuntu-24.04.
+# QBRIC_RUNS_ON (optional) picks the runner for every job, e.g. a self-hosted one that can reach an
+# internal API or a QBRIC on the same machine; the default is ubuntu-24.04.
 name: qbric-ci
 run-name: qbric ${{ inputs.correlation_id }}
 
@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   announce:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.QBRIC_RUNS_ON || 'ubuntu-24.04' }}
     timeout-minutes: 5
     permissions:
       id-token: write
@@ -113,7 +113,7 @@ jobs:
   report:
     needs: test
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.QBRIC_RUNS_ON || 'ubuntu-24.04' }}
     timeout-minutes: 5
     permissions:
       id-token: write

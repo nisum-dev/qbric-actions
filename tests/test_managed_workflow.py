@@ -70,7 +70,9 @@ class ManagedWorkflowTest(unittest.TestCase):
     def test_the_tests_run_where_the_repository_says_and_maven_repositories_get_java(self):
         workflow = load("templates/qbric-ci-managed.yml")
         test = workflow["jobs"]["test"]
-        self.assertEqual(test["runs-on"], "${{ vars.QBRIC_RUNS_ON || 'ubuntu-24.04' }}")
+        for name, job in workflow["jobs"].items():
+            self.assertEqual(job["runs-on"], "${{ vars.QBRIC_RUNS_ON || 'ubuntu-24.04' }}",
+                             f"{name} must run where the tests run: a self-hosted runner may be the only way to QBRIC")
         java = next(s for s in test["steps"] if "setup-java" in s.get("uses", ""))
         self.assertEqual(java["if"], "hashFiles('pom.xml') != ''")
         self.assertEqual((java["with"]["java-version"], java["with"]["cache"]), ("17", "maven"))

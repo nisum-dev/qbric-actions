@@ -13,9 +13,9 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts"))
 import qbric_ci_plan as plan  # noqa: E402
 
-PLAN = {"schemaVersion": 1, "runId": "exec-1", "rows": [
-    {"datapointId": 7, "env": {"QBRIC_PASSWORD": "s3cret"}},
-    {"datapointId": 8, "env": {"QBRIC_PASSWORD": "0ther"}}]}
+PLAN = {"schemaVersion": 2, "runId": "exec-1", "rows": [
+    {"position": 1, "datapointId": 7, "env": {"QBRIC_PASSWORD": "s3cret"}, "command": ["npx", "playwright", "test"]},
+    {"position": 2, "datapointId": 8, "env": {"QBRIC_PASSWORD": "0ther"}, "command": ["npx", "playwright", "test"]}]}
 
 
 class Qbric(http.server.BaseHTTPRequestHandler):
@@ -97,13 +97,20 @@ class PlanFetchTest(unittest.TestCase):
         self.assertIn("plan is gone", out)
         self.assertFalse(self.file.exists())
 
+    def test_the_plan_it_writes_is_one_the_thin_runner_runs(self):
+        import qbric_ci_run as runner
+        code, _ = self.run_main(self.env())
+
+        self.assertEqual(code, 0)
+        self.assertEqual(len(runner.load(self.file)["rows"]), 2)
+
     def test_a_plan_of_another_schema_fails_the_job(self):
-        Qbric.answer = (200, json.dumps({"schemaVersion": 2, "rows": []}))
+        Qbric.answer = (200, json.dumps({"schemaVersion": 1, "rows": []}))
 
         code, out = self.run_main(self.env())
 
         self.assertEqual(code, 1)
-        self.assertIn("schema 2", out)
+        self.assertIn("schema 1", out)
 
     def test_a_job_without_id_token_permission_fails_with_what_to_do(self):
         code, out = self.run_main(self.env(ACTIONS_ID_TOKEN_REQUEST_URL=""))
