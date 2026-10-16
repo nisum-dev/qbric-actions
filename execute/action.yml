@@ -1,0 +1,61 @@
+name: 'QBRIC execute'
+description: 'Runs the plan QBRIC made for this run in this checkout with the thin runner (scripts/qbric_ci_run.py; no QBRIC binary is downloaded) and uploads qbric-results, qbric-report and qbric-logs, even when tests fail. The job fails when a test fails.'
+
+inputs:
+  workspace:
+    description: 'The checkout to run in: the repository at the commit QBRIC asked for.'
+    required: false
+    default: '.'
+  plan-artifact:
+    description: 'The artifact the plan action uploaded.'
+    required: false
+    default: 'qbric-plan'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download the QBRIC plan
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      with:
+        name: ${{ inputs.plan-artifact }}
+        path: ${{ runner.temp }}/qbric-plan
+
+    - name: Run the QBRIC plan
+      shell: bash
+      env:
+        PLAN: ${{ runner.temp }}/qbric-plan/qbric-plan.json
+        WORKSPACE: ${{ inputs.workspace }}
+        OUT: ${{ runner.temp }}/qbric-results
+        PYTHONPATH: ${{ github.action_path }}/../scripts
+        SCRIPT: ${{ github.action_path }}/../scripts/qbric_ci_run.py
+      run: python3 "$SCRIPT" --plan "$PLAN" --workspace "$WORKSPACE" --out "$OUT"
+
+    - name: Upload the QBRIC results
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: qbric-results
+        path: |
+          ${{ runner.temp }}/qbric-results/manifest.json
+          ${{ runner.temp }}/qbric-results/rows/*/attempt-*/qbric-out/
+          ${{ runner.temp }}/qbric-results/rows/*/attempt-*/target/surefire-reports/
+        if-no-files-found: warn
+
+    - name: Upload the test report
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: qbric-report
+        path: |
+          ${{ runner.temp }}/qbric-results/rows/*/attempt-*/reports/
+          ${{ runner.temp }}/qbric-results/rows/*/attempt-*/.qbric/execution/
+        include-hidden-files: true
+        if-no-files-found: ignore
+
+    - name: Upload the execution logs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: qbric-logs
+        path: ${{ runner.temp }}/qbric-results/rows/*/attempt-*/output.log
+        if-no-files-found: ignore

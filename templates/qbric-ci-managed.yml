@@ -1,0 +1,137 @@
+# The workflow for a QBRIC-managed test repository: QBRIC plans each run (the cases, every
+# datapoint's variables, the order, the shared login and the exact commands) and this workflow runs
+# that plan with the thin runner in qbric-actions; no QBRIC binary is downloaded. Copy it to
+# .github/workflows/qbric-ci.yml and set the repository variables QBRIC_API_URL and QBRIC_TENANT_ID.
+# QBRIC_RUNS_ON (optional) picks the runner for the tests, e.g. a self-hosted one that can reach an
+# internal API; the default is ubuntu-24.04.
+name: qbric-ci
+run-name: qbric ${{ inputs.correlation_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      correlation_id:
+        description: Correlation id for this run
+        required: true
+        type: string
+      sha:
+        description: Commit to test
+        required: true
+        type: string
+      suite:
+        description: Set by QBRIC to "plan"; the plan says what runs
+        required: false
+        type: string
+        default: ''
+      environment:
+        description: GitHub environment whose secrets the tests may use
+        required: true
+        type: string
+        default: demo
+
+# The test job runs the code under test, so it never gets id-token: write. Only the reporting
+# jobs, which never check that code out, can prove themselves to QBRIC.
+permissions: {}
+
+concurrency:
+  group: qbric-${{ inputs.correlation_id }}
+  cancel-in-progress: false
+
+jobs:
+  announce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    steps:
+      - name: Report running to QBRIC
+        uses: nisum-dev/qbric-actions/ci-callback@v3
+        with:
+          qbric-api-url: ${{ vars.QBRIC_API_URL }}
+          tenant-id: ${{ vars.QBRIC_TENANT_ID }}
+          correlation-id: ${{ inputs.correlation_id }}
+          phase: running
+
+      - name: Fetch the QBRIC plan
+        uses: nisum-dev/qbric-actions/plan@v3
+        with:
+          qbric-api-url: ${{ vars.QBRIC_API_URL }}
+          tenant-id: ${{ vars.QBRIC_TENANT_ID }}
+          correlation-id: ${{ inputs.correlation_id }}
+
+  test:
+    needs: announce
+    runs-on: ${{ vars.QBRIC_RUNS_ON || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+    outputs:
+      checked_out_sha: ${{ steps.verify.outputs.sha }}
+    env:
+      QBRIC_SHA: ${{ inputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - name: Verify revision
+        id: verify
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+          if ! test "$actual" = "$QBRIC_SHA"; then
+            echo "::error::REVISION_MISMATCH expected=$QBRIC_SHA actual=$actual"
+            exit 1
+          fi
+
+      - name: Set up Node
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Set up Java
+        if: hashFiles('pom.xml') != ''
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Install browser dependencies
+        if: hashFiles('package.json') != ''
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npx playwright install --with-deps chromium
+
+      - name: Run the QBRIC plan
+        uses: nisum-dev/qbric-actions/execute@v3
+
+  report:
+    needs: test
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the QBRIC results
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: qbric-results
+          path: qbric-results
+
+      - name: Report result to QBRIC
+        uses: nisum-dev/qbric-actions/ci-callback@v3
+        with:
+          qbric-api-url: ${{ vars.QBRIC_API_URL }}
+          tenant-id: ${{ vars.QBRIC_TENANT_ID }}
+          correlation-id: ${{ inputs.correlation_id }}
+          phase: completed
+          checked-out-sha: ${{ needs.test.outputs.checked_out_sha }}
+          job-outcome: ${{ needs.test.result }}
+          results-file: qbric-results/manifest.json

@@ -1,0 +1,34 @@
+name: 'QBRIC run plan'
+description: 'Fetches the plan QBRIC made for this run and uploads it as the qbric-plan artifact (kept 1 day). Needs permissions: id-token: write. Fails the job when the plan cannot be fetched.'
+
+inputs:
+  qbric-api-url:
+    description: 'Base URL of qbric-api (https).'
+    required: true
+  tenant-id:
+    description: 'QBRIC tenant id.'
+    required: true
+  correlation-id:
+    description: 'The run''s QBRIC correlation id: the workflow''s correlation_id input.'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Fetch the QBRIC plan
+      shell: bash
+      env:
+        QBRIC_API_URL: ${{ inputs.qbric-api-url }}
+        QBRIC_TENANT_ID: ${{ inputs.tenant-id }}
+        QBRIC_CORRELATION_ID: ${{ inputs.correlation-id }}
+        QBRIC_PLAN_FILE: ${{ runner.temp }}/qbric-plan/qbric-plan.json
+        PYTHONPATH: ${{ github.action_path }}/../scripts
+        SCRIPT: ${{ github.action_path }}/../scripts/qbric_ci_plan.py
+      run: python3 "$SCRIPT"
+    - name: Upload the plan for the test job
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: qbric-plan
+        path: ${{ runner.temp }}/qbric-plan/qbric-plan.json
+        retention-days: 1
+        if-no-files-found: error

@@ -1,0 +1,51 @@
+name: 'QBRIC CI callback'
+description: 'Reports a QBRIC-started run to QBRIC, authenticated by the job''s GitHub OIDC token (audience qbric-ci). Needs permissions: id-token: write. Never fails the build.'
+
+inputs:
+  qbric-api-url:
+    description: 'Base URL of qbric-api (https).'
+    required: true
+  tenant-id:
+    description: 'QBRIC tenant id.'
+    required: true
+  correlation-id:
+    description: 'The run''s QBRIC correlation id: the workflow''s correlation_id input.'
+    required: true
+  phase:
+    description: 'running when tests are about to run, completed when the test job has ended.'
+    required: true
+  checked-out-sha:
+    description: 'The commit the tests ran on, as git rev-parse HEAD printed it.'
+    required: false
+    default: ''
+  job-outcome:
+    description: 'completed only: the test job''s result (success, failure or cancelled).'
+    required: false
+    default: ''
+  junit-dir:
+    description: 'completed only: folder holding the JUnit XML files to summarise.'
+    required: false
+    default: ''
+  results-file:
+    description: 'completed only: the manifest.json the QBRIC thin runner wrote; its rows are added up instead of junit-dir.'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: QBRIC callback
+      shell: bash
+      env:
+        QBRIC_API_URL: ${{ inputs.qbric-api-url }}
+        QBRIC_TENANT_ID: ${{ inputs.tenant-id }}
+        QBRIC_CORRELATION_ID: ${{ inputs.correlation-id }}
+        QBRIC_PHASE: ${{ inputs.phase }}
+        QBRIC_CHECKED_OUT_SHA: ${{ inputs.checked-out-sha }}
+        QBRIC_JOB_OUTCOME: ${{ inputs.job-outcome }}
+        QBRIC_JUNIT_DIR: ${{ inputs.junit-dir }}
+        QBRIC_RESULTS_FILE: ${{ inputs.results-file }}
+        QBRIC_PROVIDER_RUN_ID: ${{ github.run_id }}
+        QBRIC_ATTEMPT: ${{ github.run_attempt }}
+        SCRIPT: ${{ github.action_path }}/../scripts/qbric_ci_callback.py
+      run: python3 "$SCRIPT"
