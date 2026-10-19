@@ -1,3 +1,4 @@
+import hashlib
 import pathlib
 import re
 import sys
@@ -25,6 +26,23 @@ def uses(document):
         found += [step["uses"] for step in job.get("steps", []) if "uses" in step]
     found += [step["uses"] for step in document.get("runs", {}).get("steps", []) if "uses" in step]
     return found
+
+
+# QBRIC's limits: a CI config's run timeout is at most 360 minutes, and its watchdog adds 10.
+QBRIC_MAX_TIMEOUT_MINUTES, QBRIC_WATCHDOG_SLACK_MINUTES = 360, 10
+# The managed workflow below its header comment, as qbric-api's copy reads with nisum-dev/qbric-actions, v3 and
+# the demo environment filled in. qbric-api's ManagedWorkflowTemplateTest pins the same hash: change one copy,
+# change the other and both hashes.
+TEMPLATE_BODY_SHA256 = "c545c3888cd1b6cf85a8e3384f3a4da49c08e7f8162a838974c82b07ac22b372"
+
+
+class TemplateCopyTest(unittest.TestCase):
+
+    def test_the_template_matches_the_copy_qbric_commits(self):
+        lines = (ROOT / "templates/qbric-ci-managed.yml").read_text().splitlines(keepends=True)
+        while lines and lines[0].startswith("#"):
+            lines.pop(0)
+        self.assertEqual(hashlib.sha256("".join(lines).encode()).hexdigest(), TEMPLATE_BODY_SHA256)
 
 
 @unittest.skipUnless(yaml, "PyYAML is not installed")
@@ -66,6 +84,17 @@ class ManagedWorkflowTest(unittest.TestCase):
         self.assertTrue(all(s.get("if") == "always()" for s in uploads))
         report = next(s for s in uploads if s["with"]["name"] == "qbric-report")
         self.assertTrue(report["with"]["include-hidden-files"], "the Cucumber report lives under .qbric/")
+        self.assertTrue(all(s["with"]["retention-days"] == 7 for s in uploads), "outputs are kept a few days only")
+
+    def test_a_re_run_replaces_every_artifact_its_earlier_attempt_uploaded(self):
+        steps = load("plan/action.yml")["runs"]["steps"] + load("execute/action.yml")["runs"]["steps"]
+        uploads = [s for s in steps if "upload-artifact" in s.get("uses", "")]
+        self.assertEqual(len(uploads), 4)
+        self.assertTrue(all(s["with"]["overwrite"] is True for s in uploads))
+
+    def test_githubs_job_limit_never_ends_a_run_before_qbrics_own_timeout_does(self):
+        test = load("templates/qbric-ci-managed.yml")["jobs"]["test"]
+        self.assertGreater(test["timeout-minutes"], QBRIC_MAX_TIMEOUT_MINUTES + QBRIC_WATCHDOG_SLACK_MINUTES)
 
     def test_the_tests_run_where_the_repository_says_and_maven_repositories_get_java(self):
         workflow = load("templates/qbric-ci-managed.yml")

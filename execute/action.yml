@@ -1,5 +1,5 @@
 name: 'QBRIC execute'
-description: 'Runs the plan QBRIC made for this run in this checkout with the thin runner (scripts/qbric_ci_run.py; no QBRIC binary is downloaded) and uploads qbric-results, qbric-report and qbric-logs, even when tests fail. The job fails when a test fails.'
+description: 'Runs the plan QBRIC made for this run in this checkout with the thin runner (scripts/qbric_ci_run.py; no QBRIC binary is downloaded) and uploads qbric-results, qbric-report and qbric-logs (redacted, kept 7 days, replaced when the run is re-run), even when tests fail. The job fails when a test fails.'
 
 inputs:
   workspace:
@@ -39,6 +39,8 @@ runs:
           ${{ runner.temp }}/qbric-results/manifest.json
           ${{ runner.temp }}/qbric-results/rows/*/attempt-*/qbric-out/
           ${{ runner.temp }}/qbric-results/rows/*/attempt-*/target/surefire-reports/
+        retention-days: 7
+        overwrite: true
         if-no-files-found: warn
 
     - name: Upload the test report
@@ -50,6 +52,8 @@ runs:
           ${{ runner.temp }}/qbric-results/rows/*/attempt-*/reports/
           ${{ runner.temp }}/qbric-results/rows/*/attempt-*/.qbric/execution/
         include-hidden-files: true
+        retention-days: 7
+        overwrite: true
         if-no-files-found: ignore
 
     - name: Upload the execution logs
@@ -58,4 +62,6 @@ runs:
       with:
         name: qbric-logs
         path: ${{ runner.temp }}/qbric-results/rows/*/attempt-*/output.log
+        retention-days: 7
+        overwrite: true
         if-no-files-found: ignore

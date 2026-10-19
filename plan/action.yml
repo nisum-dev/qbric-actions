@@ -1,5 +1,5 @@
 name: 'QBRIC run plan'
-description: 'Fetches the plan QBRIC made for this run and uploads it as the qbric-plan artifact (kept 1 day). Needs permissions: id-token: write. Fails the job when the plan cannot be fetched.'
+description: 'Fetches the plan QBRIC made for this run and uploads it as the qbric-plan artifact (kept 1 day, replaced when the run is re-run). Needs permissions: id-token: write. Fails the job when the plan cannot be fetched.'
 
 inputs:
   qbric-api-url:
@@ -31,4 +31,5 @@ runs:
         name: qbric-plan
         path: ${{ runner.temp }}/qbric-plan/qbric-plan.json
         retention-days: 1
+        overwrite: true
         if-no-files-found: error

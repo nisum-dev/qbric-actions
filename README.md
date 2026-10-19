@@ -24,11 +24,24 @@ CI/CD, together with the repository variables `QBRIC_API_URL` and `QBRIC_TENANT_
 - **The code under test never gets that token.** Only `announce` and `report` have `id-token: write`;
   the `test` job has `contents: read`.
 - **The plan carries the run's variable values**, secrets included, until QBRIC's secret handling is
-  decided. Every value is masked in the job log, the `qbric-plan` artifact is kept for one day, and QBRIC
-  deletes it once the results are in.
-- **The runner only runs what it allows:** `npx`, `npm`, `mvn` and `./mvnw`, without a shell, with files
-  and outputs inside the checkout.
+  decided. Every value is masked in the job log. The `qbric-plan` artifact is kept for one day at most:
+  QBRIC deletes it as soon as the run ends, however it ends.
+- **Kept outputs are redacted.** Before upload, every plan value of four characters or more is replaced
+  by `***` in the logs and in the text of the Playwright JSON, the Surefire XML and the HTML report.
+  Binary files (screenshots, traces, the zipped data inside Playwright's HTML report) cannot be
+  redacted, so `qbric-results`, `qbric-report` and `qbric-logs` are kept for seven days.
+- **The runner refuses obviously harmful plans:** commands other than `npx`, `npm`, `mvn` and `./mvnw`,
+  a shell, and any file or output outside the checkout, directly or through a symbolic link.
 - **Third-party actions are pinned to commit SHAs.**
+
+### Trust boundary
+
+The runner's checks limit mistakes; they do not make QBRIC untrusted. A plan's files include the
+Playwright wrapper config, which Playwright executes, and `npx` and `npm` run whatever package they are
+given. Whoever controls QBRIC, or this repository's `v3` tag, can run code on the runner, as can anyone
+who can push to the test repository. QBRIC already writes to the test repository through its GitHub App,
+so this is the trust the repository gives QBRIC anyway. Keep secrets the tests do not need out of the
+runner, and pin `@<commit SHA>` instead of `@v3` when the moving tag is not acceptable.
 
 ## Requirements
 

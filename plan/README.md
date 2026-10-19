@@ -27,5 +27,6 @@ jobs:
 | `correlation-id` | yes | The workflow's `correlation_id` input |
 
 The plan holds every variable value of the run, secrets included, until QBRIC's secret handling
-is decided (docs/22, D4). It is written owner-only, never printed, and the artifact expires after
-one day. Anyone with read access to the repository can download it until then.
+is decided (docs/22, D4). It is written owner-only and never printed. QBRIC deletes the artifact as
+soon as the run ends, however it ends, and it expires after one day in any case; anyone with read
+access to the repository can download it until then. A re-run replaces it.

@@ -10,6 +10,7 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts"))
 import qbric_ci_results as results  # noqa: E402
 import qbric_ci_run as runner  # noqa: E402
+import qbric_ci_secrets as secrets  # noqa: E402
 
 PW = ["npx", "playwright", "test", "--config=qbric.playwright.config.ts", "tests/flows/Login/", "tests/flows/Cart/"]
 MVN = ["mvn", "test", "-B", "-Dtest=UserApiTest#createUser+getUser"]
@@ -61,10 +62,11 @@ class ThinRunnerTest(unittest.TestCase):
     def tearDown(self):
         self.folder.cleanup()
 
-    def run_row(self, plan_row, script, retry=RETRY, budget=None):
-        plan = {"retry": retry, "timeoutMinutes": 12}
+    def run_row(self, plan_row, script, retry=RETRY, budget=None, deadline=None):
+        plan = {"retry": retry, "timeoutMinutes": 12, "rows": [plan_row]}
         return runner.run_row(plan_row, plan, self.workspace, self.out, budget or runner.Budget(retry),
-                              io.StringIO(), run=script, sleep=self.sleeps.append)
+                              io.StringIO(), run=script, sleep=self.sleeps.append,
+                              deadline=deadline or runner.Deadline(12, clock=lambda: 0))
 
     def test_a_green_row_runs_once_with_its_variables_and_keeps_its_outputs(self):
         script = Script(self.workspace, {results.PLAYWRIGHT_REPORT: playwright_report(**{"Login.spec.ts": ["expected"]}),
@@ -270,7 +272,7 @@ class PlanCheckTest(unittest.TestCase):
 
     def test_nothing_is_masked_outside_github_actions(self):
         out = io.StringIO()
-        runner.mask({"rows": [{"env": {"QBRIC_PASSWORD": "s3cret"}}]}, {}, out)
+        secrets.mask({"rows": [{"env": {"QBRIC_PASSWORD": "s3cret"}}]}, {}, out)
         self.assertEqual(out.getvalue(), "")
 
     def test_an_unusable_plan_exits_two(self):

@@ -62,7 +62,9 @@ jobs:
   test:
     needs: announce
     runs-on: ${{ vars.QBRIC_RUNS_ON || 'ubuntu-24.04' }}
-    timeout-minutes: 60
+    # GitHub's limit stays above any run timeout QBRIC allows (360 minutes): QBRIC's own watchdog and the
+    # plan's timeoutMinutes end a run, and the runner reports every row it finished.
+    timeout-minutes: 380
     environment: ${{ inputs.environment }}
     permissions:
       contents: read

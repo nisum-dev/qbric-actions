@@ -20,7 +20,7 @@ jobs:
   announce:
     permissions: { id-token: write }
     steps:
-      - uses: nisum-dev/qbric-actions/ci-callback@v2
+      - uses: nisum-dev/qbric-actions/ci-callback@v3
         with:
           qbric-api-url: ${{ vars.QBRIC_API_URL }}
           tenant-id: ${{ vars.QBRIC_TENANT_ID }}
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/download-artifact@v4
         continue-on-error: true
         with: { name: qbric-junit, path: junit }
-      - uses: nisum-dev/qbric-actions/ci-callback@v2
+      - uses: nisum-dev/qbric-actions/ci-callback@v3
         with:
           qbric-api-url: ${{ vars.QBRIC_API_URL }}
           tenant-id: ${{ vars.QBRIC_TENANT_ID }}

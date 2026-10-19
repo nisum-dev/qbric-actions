@@ -4,12 +4,17 @@ Runs the plan the [plan action](../plan/README.md) uploaded, in this checkout, w
 (`scripts/qbric_ci_run.py`, Python standard library only). QBRIC decided everything on its own clone of
 the same commit: for each datapoint row the files to write, the variables, the command and the outputs
 to keep. The runner masks every value, runs each row in order without a shell, retries failed tests the
-way QBRIC's runner does, and keeps every attempt's output. Nothing is downloaded and no QBRIC code runs
-here.
+way QBRIC's runner does, and keeps every attempt's output with the plan's values redacted. Nothing is
+downloaded and no QBRIC code runs here.
+
+The plan's `timeoutMinutes` is the whole run's limit: an attempt gets what is left of it, and no attempt
+starts once it has passed. `manifest.json` is written after every row, so a run that is cancelled or
+times out still reports every row it finished; the rows it did not reach are listed as not run.
 
 It uploads `qbric-results` (`manifest.json` and the raw Playwright JSON or Surefire XML, which QBRIC
 parses on import), `qbric-report` (the HTML reports) and `qbric-logs` (each attempt's output), even when
-tests fail. The step fails when a test fails.
+tests fail. Each is kept for seven days and replaced when the run is re-run. The step fails when a test
+fails.
 
 ```yaml
 jobs:
@@ -32,9 +37,15 @@ Never give this job `id-token: write`: it runs the code under test.
 ## What the runner allows
 
 - Commands: `npx`, `npm`, `mvn` and `./mvnw` only, as argument lists, never through a shell.
-- Files and outputs: paths inside the checkout only; a path that leaves it, directly or through a
-  symbolic link, stops the run before anything runs.
-- Exit codes: 0 every row passed, 1 a test failed, 2 the plan could not be used.
+- Files: paths inside the checkout only. A file whose path leaves it, directly or through a symbolic
+  link, stops the plan before anything runs, and again before its row runs.
+- Outputs: kept only from inside the checkout; an output that leads out of it is skipped, and symbolic
+  links inside a kept folder are left out. Links are never followed or deleted.
+- A command that is not installed fails its attempt (exit 127) instead of stopping the runner.
+- Exit codes: 0 every row passed, 1 a test failed or the job was stopped, 2 the plan could not be used.
+
+These checks stop mistakes, not a hostile QBRIC: see the trust boundary in the
+[README](../README.md#trust-boundary).
 
 ## What the runner needs
 
