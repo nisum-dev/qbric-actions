@@ -13,8 +13,9 @@ times out still reports every row it finished; the rows it did not reach are lis
 
 It uploads `qbric-results` (`manifest.json` and the raw Playwright JSON or Surefire XML, which QBRIC
 parses on import), `qbric-report` (the HTML reports) and `qbric-logs` (each attempt's output), even when
-tests fail. Each is kept for seven days and replaced when the run is re-run. The step fails when a test
-fails.
+tests fail. Each is kept for seven days and replaced when the run is re-run. `qbric-results` is QBRIC's
+input, not a download: QBRIC deletes it once it has imported the results, and keeps it only when an
+import fails. The step fails when a test fails.
 
 ```yaml
 jobs:
