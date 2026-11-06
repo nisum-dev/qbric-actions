@@ -27,9 +27,10 @@ CI/CD, together with the repository variables `QBRIC_API_URL` and `QBRIC_TENANT_
   decided. Every value is masked in the job log. The `qbric-plan` artifact is kept for one day at most:
   QBRIC deletes it as soon as the run ends, however it ends.
 - **Kept outputs are redacted.** Before upload, every plan value of four characters or more is replaced
-  by `***` in the logs and in the text of the Playwright JSON, the Surefire XML and the HTML report.
-  Binary files (screenshots, traces, the zipped data inside Playwright's HTML report) cannot be
-  redacted, so `qbric-results`, `qbric-report` and `qbric-logs` are kept for seven days.
+  by `***` in the logs, the Playwright JSON and the Surefire XML. The HTML report is left as it is:
+  it is code, which text replacement would break, and its test data is encoded where it cannot be
+  reached. That and binary files (screenshots, traces) are why `qbric-results`, `qbric-report` and
+  `qbric-logs` are kept for seven days.
 - **The runner refuses obviously harmful plans:** commands other than `npx`, `npm`, `mvn` and `./mvnw`,
   a shell, and any file or output outside the checkout, directly or through a symbolic link.
 - **Third-party actions are pinned to commit SHAs.**

@@ -2,9 +2,10 @@
 
 GitHub masks only its own job log; the kept outputs are uploaded as artifacts that anyone who can read the
 repository can download, so their text is redacted too. JSON and XML are parsed and only their strings change,
-so QBRIC reads the counts exactly as before. Binary files (screenshots, traces, the zipped data inside
-Playwright's HTML report) cannot be redacted; the artifacts that hold them are kept for a few days only.
-Standard library only.
+so QBRIC reads the counts exactly as before. HTML is left alone: Playwright's report page is its own minified
+code, where a value such as "previous" is also part of "previousSibling", and its test data sits in an
+encoded block that text replacement cannot reach anyway. That, and binary files (screenshots, traces), are
+why the artifacts that hold them are kept for a few days only. Standard library only.
 """
 import json
 import pathlib
@@ -12,7 +13,7 @@ import xml.etree.ElementTree as ElementTree
 
 REDACTED = "***"
 MIN_LENGTH = 4  # a shorter value is no secret, and replacing it would garble every number and word that holds it
-PLAIN_TEXT = {".log", ".txt", ".md", ".html", ".htm", ".csv"}
+PLAIN_TEXT = {".log", ".txt", ".md", ".csv"}  # never .html: a report page is code, and replacing text in it breaks it
 XML_ATTRIBUTES = ("message", "value")  # failure and error messages, property values; never counts or names
 
 

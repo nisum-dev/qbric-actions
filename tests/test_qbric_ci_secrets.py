@@ -85,6 +85,16 @@ class RedactorTest(unittest.TestCase):
         self.assertEqual(target.read_text(), PASSWORD)
         outside.cleanup()
 
+    def test_a_report_page_is_left_whole_because_it_is_code(self):
+        secrets_in_code = secrets.Redactor(secrets.values({"rows": [{"env": {"QBRIC_NAV": "previous"}}]}))
+        page = self.write("reports/html/index.html",
+                          "<script>function f(e){e=e.previousSibling;return e}</script><a>« previous</a>")
+        before = page.read_text()
+
+        secrets_in_code.tree(self.root)
+
+        self.assertEqual(page.read_text(), before)
+
     def test_a_plan_without_values_redacts_nothing(self):
         log = self.write("output.log", "1234")
 
