@@ -12,6 +12,8 @@ Required:
   QBRIC_PLAN_FILE        where to write the plan
 Authentication:
   ACTIONS_ID_TOKEN_REQUEST_URL/TOKEN  set by GitHub Actions when the job has id-token: write
+Output:
+  GITHUB_OUTPUT          when set, gets java-version: the Java QBRIC read from this commit's build, when it has one
 """
 import json
 import os
@@ -58,7 +60,7 @@ def write_plan(path, text):
     descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(descriptor, "w") as handle:
         handle.write(text)
-    return len(plan.get("rows", []))
+    return plan
 
 
 def main(env):
@@ -70,11 +72,16 @@ def main(env):
         print("::error::QBRIC plan not fetched: give the job id-token: write")
         return 1
     try:
-        rows = write_plan(env["QBRIC_PLAN_FILE"], fetch(plan_url(env), callback.github_token(env)))
+        plan = write_plan(env["QBRIC_PLAN_FILE"], fetch(plan_url(env), callback.github_token(env)))
     except (ValueError, OSError, RuntimeError) as error:
         print(f"::error::QBRIC plan not fetched: {error}")
         return 1
-    print(f"QBRIC plan fetched: {rows} row(s)")
+    print(f"QBRIC plan fetched: {len(plan.get('rows', []))} row(s)")
+    java = plan.get("javaVersion")
+    if isinstance(java, int) and not isinstance(java, bool) and env.get("GITHUB_OUTPUT"):
+        with open(env["GITHUB_OUTPUT"], "a") as out:
+            out.write(f"java-version={java}\n")
+        print(f"Java {java}, as this commit's build asks for")
     return 0
 
 

@@ -87,6 +87,25 @@ class PlanFetchTest(unittest.TestCase):
         self.assertIn("2 row(s)", out)
         self.assertNotIn("s3cret", out)
 
+    def test_the_java_version_in_the_plan_becomes_the_actions_output(self):
+        Qbric.answer = (200, json.dumps(dict(PLAN, javaVersion=21)))
+        output = pathlib.Path(self.folder.name, "github-output")
+
+        code, out = self.run_main(self.env(GITHUB_OUTPUT=str(output)))
+
+        self.assertEqual(code, 0)
+        self.assertEqual(output.read_text(), "java-version=21\n")
+        self.assertIn("Java 21", out)
+
+    def test_a_plan_without_a_java_version_sets_no_output(self):
+        output = pathlib.Path(self.folder.name, "github-output")
+        output.write_text("")
+
+        code, _ = self.run_main(self.env(GITHUB_OUTPUT=str(output)))
+
+        self.assertEqual(code, 0)
+        self.assertEqual(output.read_text(), "")
+
     def test_a_refused_plan_fails_the_job_with_qbrics_answer(self):
         Qbric.answer = (410, "The run has finished; its plan is gone.")
 

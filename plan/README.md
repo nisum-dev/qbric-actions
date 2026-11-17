@@ -26,6 +26,10 @@ jobs:
 | `tenant-id` | yes | QBRIC tenant id |
 | `correlation-id` | yes | The workflow's `correlation_id` input |
 
+| Output | Meaning |
+| --- | --- |
+| `java-version` | The Java QBRIC read from the build at the tested commit (Maven or Gradle, never below 17); empty when the project has no such build. The managed workflow's announce job passes it to the test job's Set up Java. |
+
 The plan holds every variable value of the run, secrets included, until QBRIC's secret handling
 is decided (docs/22, D4). It is written owner-only and never printed. QBRIC deletes the artifact as
 soon as the run ends, however it ends, and it expires after one day in any case; anyone with read

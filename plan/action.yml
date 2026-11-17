@@ -12,10 +12,16 @@ inputs:
     description: 'The run''s QBRIC correlation id: the workflow''s correlation_id input.'
     required: true
 
+outputs:
+  java-version:
+    description: 'The Java QBRIC read from the build at this commit (Maven or Gradle, never below 17); empty when the project has no such build.'
+    value: ${{ steps.fetch.outputs.java-version }}
+
 runs:
   using: 'composite'
   steps:
     - name: Fetch the QBRIC plan
+      id: fetch
       shell: bash
       env:
         QBRIC_API_URL: ${{ inputs.qbric-api-url }}

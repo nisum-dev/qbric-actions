@@ -33,7 +33,7 @@ QBRIC_MAX_TIMEOUT_MINUTES, QBRIC_WATCHDOG_SLACK_MINUTES = 360, 10
 # The managed workflow below its header comment, as qbric-api's copy reads with nisum-dev/qbric-actions, v3 and
 # the demo environment filled in. qbric-api's ManagedWorkflowTemplateTest pins the same hash: change one copy,
 # change the other and both hashes.
-TEMPLATE_BODY_SHA256 = "c545c3888cd1b6cf85a8e3384f3a4da49c08e7f8162a838974c82b07ac22b372"
+TEMPLATE_BODY_SHA256 = "1fe767ef8403177859063a28a25e08bc11b7316c0915ada222f3a89b49687e0d"
 
 
 class TemplateCopyTest(unittest.TestCase):
@@ -102,9 +102,12 @@ class ManagedWorkflowTest(unittest.TestCase):
         for name, job in workflow["jobs"].items():
             self.assertEqual(job["runs-on"], "${{ vars.QBRIC_RUNS_ON || 'ubuntu-24.04' }}",
                              f"{name} must run where the tests run: a self-hosted runner may be the only way to QBRIC")
+        # The Java QBRIC read from the build travels in the plan; QBRIC_JAVA_VERSION overrides it.
+        self.assertEqual(workflow["jobs"]["announce"]["outputs"]["java_version"],
+                         "${{ steps.plan.outputs.java-version }}")
         java = next(s for s in test["steps"] if "setup-java" in s.get("uses", ""))
-        self.assertEqual(java["if"], "hashFiles('pom.xml') != ''")
-        self.assertEqual((java["with"]["java-version"], java["with"]["cache"]), ("17", "maven"))
+        self.assertEqual(java["with"]["java-version"],
+                         "${{ vars.QBRIC_JAVA_VERSION || needs.announce.outputs.java_version || '17' }}")
         report = next(s for s in workflow["jobs"]["report"]["steps"] if s.get("with", {}).get("phase") == "completed")
         self.assertEqual(report["with"]["results-file"], "qbric-results/manifest.json")
 

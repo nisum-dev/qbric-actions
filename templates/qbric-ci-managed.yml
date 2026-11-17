@@ -4,6 +4,7 @@
 # .github/workflows/qbric-ci.yml and set the repository variables QBRIC_API_URL and QBRIC_TENANT_ID.
 # QBRIC_RUNS_ON (optional) picks the runner for every job, e.g. a self-hosted one that can reach an
 # internal API or a QBRIC on the same machine; the default is ubuntu-24.04.
+# QBRIC_JAVA_VERSION (optional) sets the Java version when the build should not decide it.
 name: qbric-ci
 run-name: qbric ${{ inputs.correlation_id }}
 
@@ -43,6 +44,8 @@ jobs:
     timeout-minutes: 5
     permissions:
       id-token: write
+    outputs:
+      java_version: ${{ steps.plan.outputs.java-version }}
     steps:
       - name: Report running to QBRIC
         uses: nisum-dev/qbric-actions/ci-callback@v3
@@ -53,6 +56,7 @@ jobs:
           phase: running
 
       - name: Fetch the QBRIC plan
+        id: plan
         uses: nisum-dev/qbric-actions/plan@v3
         with:
           qbric-api-url: ${{ vars.QBRIC_API_URL }}
@@ -95,13 +99,15 @@ jobs:
         with:
           node-version: '20'
 
+      # The Java QBRIC read from this commit's build (the release it asks for, never below 17; Karate 2 needs 21).
+      # The repository variable QBRIC_JAVA_VERSION, when set, overrides it.
       - name: Set up Java
-        if: hashFiles('pom.xml') != ''
+        if: needs.announce.outputs.java_version != '' || hashFiles('pom.xml', 'build.gradle', 'build.gradle.kts') != ''
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
-          java-version: '17'
-          cache: maven
+          java-version: ${{ vars.QBRIC_JAVA_VERSION || needs.announce.outputs.java_version || '17' }}
+          cache: ${{ hashFiles('**/pom.xml') != '' && 'maven' || 'gradle' }}
 
       - name: Install browser dependencies
         if: hashFiles('package.json') != ''
