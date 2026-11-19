@@ -26,6 +26,7 @@ import time
 
 import qbric_ci_paths as paths
 import qbric_ci_results as results
+import qbric_ci_data as data
 import qbric_ci_secrets as secrets
 
 PASSED, FAILED, UNUSABLE = 0, 1, 2
@@ -156,6 +157,8 @@ def attempts_of(row, plan, workspace, out_dir, budget, out, run, sleep, state, d
     max_attempts = max(2, int(retry.get("maxAttempts", 2))) if retry else 1
     redactor = secrets.Redactor(secrets.values(plan))
     env = dict(os.environ)
+    # The workflow's secrets reach a row only by the names the plan lists (qbric_ci_data), never as a whole.
+    env.pop(data.SECRETS_ENV, None)
     env.update({k: v for k, v in (row.get("env") or {}).items() if v is not None})
     if state:
         env[row["stateDirEnv"]] = state
@@ -227,6 +230,11 @@ def main(argv, env=os.environ, out=sys.stdout):
         plan = load(args.plan)
         paths.check_files(plan, workspace)
     except UnusablePlan as error:
+        out.write(f"::error::QBRIC plan not run: {error}\n")
+        return UNUSABLE
+    try:
+        plan = data.prepared(plan, env, env.get("RUNNER_TEMP") or out_dir.parent)
+    except data.Missing as error:
         out.write(f"::error::QBRIC plan not run: {error}\n")
         return UNUSABLE
     secrets.mask(plan, env, out)

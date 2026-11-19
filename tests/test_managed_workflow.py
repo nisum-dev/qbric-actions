@@ -33,7 +33,7 @@ QBRIC_MAX_TIMEOUT_MINUTES, QBRIC_WATCHDOG_SLACK_MINUTES = 360, 10
 # The managed workflow below its header comment, as qbric-api's copy reads with nisum-dev/qbric-actions, v3 and
 # the demo environment filled in. qbric-api's ManagedWorkflowTemplateTest pins the same hash: change one copy,
 # change the other and both hashes.
-TEMPLATE_BODY_SHA256 = "1fe767ef8403177859063a28a25e08bc11b7316c0915ada222f3a89b49687e0d"
+TEMPLATE_BODY_SHA256 = "8a9d247ae1b3467b2fe58a528978bbb9acedf8d7da76d5f68b96586c8422fc67"
 
 
 class TemplateCopyTest(unittest.TestCase):
@@ -51,7 +51,8 @@ class ManagedWorkflowTest(unittest.TestCase):
     def test_only_the_reporting_jobs_can_prove_themselves_to_qbric(self):
         jobs = load("templates/qbric-ci-managed.yml")["jobs"]
         self.assertEqual(jobs["announce"]["permissions"], {"id-token": "write"})
-        self.assertEqual(jobs["report"]["permissions"], {"id-token": "write"})
+        # The report job may also delete this run's test data (actions: write), never prove more.
+        self.assertEqual(jobs["report"]["permissions"], {"id-token": "write", "actions": "write"})
         self.assertNotIn("id-token", jobs["test"]["permissions"])
 
     def test_the_workflow_takes_the_inputs_qbric_dispatches_with(self):
@@ -72,6 +73,10 @@ class ManagedWorkflowTest(unittest.TestCase):
         upload = next(s for s in plan_steps if "upload-artifact" in s.get("uses", ""))
         self.assertEqual(upload["with"]["retention-days"], 1)
         self.assertEqual(upload["with"]["name"], "qbric-plan")
+        # API tests' data: kept a day at most, and deleted by the report job once the run has reported.
+        data = next(s for s in plan_steps if s.get("with", {}).get("name") == "qbric-data")
+        self.assertEqual(data["with"]["retention-days"], 1)
+        self.assertEqual(data["with"]["if-no-files-found"], "ignore")
         execute_steps = load("execute/action.yml")["runs"]["steps"]
         uploads = [s for s in execute_steps if "upload-artifact" in s.get("uses", "")]
         self.assertEqual({s["with"]["name"] for s in uploads}, {"qbric-results", "qbric-report", "qbric-logs"})
@@ -89,8 +94,18 @@ class ManagedWorkflowTest(unittest.TestCase):
     def test_a_re_run_replaces_every_artifact_its_earlier_attempt_uploaded(self):
         steps = load("plan/action.yml")["runs"]["steps"] + load("execute/action.yml")["runs"]["steps"]
         uploads = [s for s in steps if "upload-artifact" in s.get("uses", "")]
-        self.assertEqual(len(uploads), 4)
+        self.assertEqual(len(uploads), 5)
         self.assertTrue(all(s["with"]["overwrite"] is True for s in uploads))
+
+    def test_the_test_job_gets_the_secrets_and_the_report_job_deletes_the_test_data(self):
+        workflow = load("templates/qbric-ci-managed.yml")
+        execute = next(s for s in workflow["jobs"]["test"]["steps"] if "/execute@" in s.get("uses", ""))
+        self.assertEqual(execute["with"]["secrets"], "${{ toJSON(secrets) }}")
+        report = workflow["jobs"]["report"]["steps"]
+        cleanup = report[-1]
+        self.assertTrue(cleanup["uses"].startswith("nisum-dev/qbric-actions/cleanup@"))
+        self.assertEqual(cleanup["if"], "always()")
+        self.assertIn("ci-callback", report[-2]["uses"], "the data is deleted only after the run has reported")
 
     def test_githubs_job_limit_never_ends_a_run_before_qbrics_own_timeout_does(self):
         test = load("templates/qbric-ci-managed.yml")["jobs"]["test"]

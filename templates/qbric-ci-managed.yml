@@ -117,6 +117,10 @@ jobs:
 
       - name: Run the QBRIC plan
         uses: nisum-dev/qbric-actions/execute@v3
+        with:
+          # The test users' sign-in, which QBRIC writes to this environment before the run. The runner exports only
+          # the names the plan lists, so no other secret reaches the tests.
+          secrets: ${{ toJSON(secrets) }}
 
   report:
     needs: test
@@ -125,6 +129,8 @@ jobs:
     timeout-minutes: 5
     permissions:
       id-token: write
+      # Only to delete this run's test data once the result is reported.
+      actions: write
     steps:
       - name: Download the QBRIC results
         continue-on-error: true
@@ -143,3 +149,8 @@ jobs:
           checked-out-sha: ${{ needs.test.outputs.checked_out_sha }}
           job-outcome: ${{ needs.test.result }}
           results-file: qbric-results/manifest.json
+
+      # The run's test data (a suite on the API test model) is not kept once the run has reported.
+      - name: Delete the run's test data
+        if: always()
+        uses: nisum-dev/qbric-actions/cleanup@v3

@@ -34,6 +34,7 @@ Never give this job `id-token: write`: it runs the code under test.
 | --- | --- | --- |
 | `workspace` | `.` | The checkout, at the commit QBRIC asked for |
 | `plan-artifact` | `qbric-plan` | The artifact the plan action uploaded |
+| `secrets` | `{}` | The job's secrets as JSON (`${{ toJSON(secrets) }}`). API tests' test users sign in with secrets QBRIC writes to the run's environment before it starts; only the names the plan lists reach the tests |
 
 ## What the runner allows
 

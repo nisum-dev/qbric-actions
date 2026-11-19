@@ -12,6 +12,9 @@ Required:
   QBRIC_PLAN_FILE        where to write the plan
 Authentication:
   ACTIONS_ID_TOKEN_REQUEST_URL/TOKEN  set by GitHub Actions when the job has id-token: write
+Optional:
+  QBRIC_DATA_FILE        where to write the run's test data, when the plan says it has some (API tests): QBRIC's
+                         data bundle, no secrets, handed to the test job as the qbric-data artifact
 Output:
   GITHUB_OUTPUT          when set, gets java-version: the Java QBRIC read from this commit's build, when it has one
 """
@@ -31,6 +34,18 @@ REQUIRED = ["QBRIC_API_URL", "QBRIC_TENANT_ID", "QBRIC_CORRELATION_ID", "QBRIC_P
 
 def plan_url(env):
     return callback.endpoint(env) + "/plan"
+
+
+def data_url(env):
+    return callback.endpoint(env) + "/data"
+
+
+def write_private(path, text):
+    target = pathlib.Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w") as handle:
+        handle.write(text)
 
 
 def fetch(url, token, attempts=3):
@@ -72,11 +87,24 @@ def main(env):
         print("::error::QBRIC plan not fetched: give the job id-token: write")
         return 1
     try:
-        plan = write_plan(env["QBRIC_PLAN_FILE"], fetch(plan_url(env), callback.github_token(env)))
+        token = callback.github_token(env)
+        plan = write_plan(env["QBRIC_PLAN_FILE"], fetch(plan_url(env), token))
     except (ValueError, OSError, RuntimeError) as error:
         print(f"::error::QBRIC plan not fetched: {error}")
         return 1
     print(f"QBRIC plan fetched: {len(plan.get('rows', []))} row(s)")
+    if plan.get("data"):
+        if not env.get("QBRIC_DATA_FILE"):
+            print("::error::QBRIC test data not fetched: the plan action sets QBRIC_DATA_FILE")
+            return 1
+        try:
+            text = fetch(data_url(env), token)
+            files = json.loads(text).get("files") or {}
+            write_private(env["QBRIC_DATA_FILE"], text)
+        except (ValueError, OSError, RuntimeError) as error:
+            print(f"::error::QBRIC test data not fetched: {error}")
+            return 1
+        print(f"QBRIC test data fetched: {len(files)} file(s)")
     java = plan.get("javaVersion")
     if isinstance(java, int) and not isinstance(java, bool) and env.get("GITHUB_OUTPUT"):
         with open(env["GITHUB_OUTPUT"], "a") as out:

@@ -21,6 +21,7 @@ PLAN = {"schemaVersion": 2, "runId": "exec-1", "rows": [
 class Qbric(http.server.BaseHTTPRequestHandler):
     """Plays GitHub's OIDC token endpoint and QBRIC's plan endpoint."""
     answer = (200, json.dumps(PLAN))
+    data_answer = (200, json.dumps({"sha256": "abc", "files": {"manifest.json": "{}", "cases/op.json": "[]"}}))
     seen = []
 
     def do_GET(self):
@@ -29,6 +30,8 @@ class Qbric(http.server.BaseHTTPRequestHandler):
             self._send(200, json.dumps({"value": "oidc-token"}))
         elif self.headers.get("Authorization") != "Bearer oidc-token":
             self._send(401, "no token")
+        elif self.path.endswith("/data"):
+            self._send(*Qbric.data_answer)
         else:
             self._send(*Qbric.answer)
 
@@ -105,6 +108,38 @@ class PlanFetchTest(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertEqual(output.read_text(), "")
+
+    def test_a_plan_with_test_data_fetches_it_for_the_test_job(self):
+        Qbric.answer = (200, json.dumps(dict(PLAN, data=True)))
+        data_file = pathlib.Path(self.folder.name, "qbric-data", "qbric-data.json")
+
+        code, out = self.run_main(self.env(QBRIC_DATA_FILE=str(data_file)))
+
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(data_file.read_text())["files"]["cases/op.json"], "[]")
+        self.assertEqual(stat.S_IMODE(os.stat(data_file).st_mode), 0o600)
+        self.assertIn(("/v1/tenants/42/ci/callbacks/qb-7c41e2d0/data", "Bearer oidc-token"), Qbric.seen)
+        self.assertIn("2 file(s)", out)
+
+    def test_a_plan_without_test_data_fetches_none(self):
+        data_file = pathlib.Path(self.folder.name, "qbric-data", "qbric-data.json")
+
+        code, _ = self.run_main(self.env(QBRIC_DATA_FILE=str(data_file)))
+
+        self.assertEqual(code, 0)
+        self.assertFalse(data_file.exists())
+        self.assertFalse(any(path.endswith("/data") for path, _ in Qbric.seen))
+
+    def test_test_data_qbric_refuses_fails_the_job(self):
+        Qbric.answer = (200, json.dumps(dict(PLAN, data=True)))
+        Qbric.data_answer = (404, "This run has no data bundle")
+        try:
+            code, out = self.run_main(self.env(QBRIC_DATA_FILE=str(pathlib.Path(self.folder.name, "d.json"))))
+        finally:
+            Qbric.data_answer = (200, json.dumps({"sha256": "abc", "files": {"manifest.json": "{}", "cases/op.json": "[]"}}))
+
+        self.assertEqual(code, 1)
+        self.assertIn("test data not fetched", out)
 
     def test_a_refused_plan_fails_the_job_with_qbrics_answer(self):
         Qbric.answer = (410, "The run has finished; its plan is gone.")

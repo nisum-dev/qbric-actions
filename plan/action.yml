@@ -1,5 +1,5 @@
 name: 'QBRIC run plan'
-description: 'Fetches the plan QBRIC made for this run and uploads it as the qbric-plan artifact (kept 1 day, replaced when the run is re-run). Needs permissions: id-token: write. Fails the job when the plan cannot be fetched.'
+description: 'Fetches the plan QBRIC made for this run and uploads it as the qbric-plan artifact (kept 1 day, replaced when the run is re-run), and the run''s test data as qbric-data when it has some (API tests). Needs permissions: id-token: write. Fails the job when the plan cannot be fetched.'
 
 inputs:
   qbric-api-url:
@@ -28,6 +28,7 @@ runs:
         QBRIC_TENANT_ID: ${{ inputs.tenant-id }}
         QBRIC_CORRELATION_ID: ${{ inputs.correlation-id }}
         QBRIC_PLAN_FILE: ${{ runner.temp }}/qbric-plan/qbric-plan.json
+        QBRIC_DATA_FILE: ${{ runner.temp }}/qbric-data/qbric-data.json
         PYTHONPATH: ${{ github.action_path }}/../scripts
         SCRIPT: ${{ github.action_path }}/../scripts/qbric_ci_plan.py
       run: python3 "$SCRIPT"
@@ -39,3 +40,13 @@ runs:
         retention-days: 1
         overwrite: true
         if-no-files-found: error
+    # API tests' data (QBRIC's data bundle, no secrets); none for other runs. The workflow's report job deletes it once
+    # the run has reported.
+    - name: Upload the test data for the test job
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: qbric-data
+        path: ${{ runner.temp }}/qbric-data/qbric-data.json
+        retention-days: 1
+        overwrite: true
+        if-no-files-found: ignore

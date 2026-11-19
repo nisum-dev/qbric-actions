@@ -10,6 +10,10 @@ inputs:
     description: 'The artifact the plan action uploaded.'
     required: false
     default: 'qbric-plan'
+  secrets:
+    description: 'The job''s secrets as JSON (`${{ toJSON(secrets) }}`). Only the names the plan lists (API tests'' test users, which QBRIC writes to the environment before the run) reach the tests.'
+    required: false
+    default: '{}'
 
 runs:
   using: 'composite'
@@ -20,9 +24,19 @@ runs:
         name: ${{ inputs.plan-artifact }}
         path: ${{ runner.temp }}/qbric-plan
 
+    # API tests' data; a run without any has no such artifact, so this step may find none.
+    - name: Download the QBRIC test data
+      continue-on-error: true
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      with:
+        name: qbric-data
+        path: ${{ runner.temp }}/qbric-data
+
     - name: Run the QBRIC plan
       shell: bash
       env:
+        QBRIC_DATA_FILE: ${{ runner.temp }}/qbric-data/qbric-data.json
+        QBRIC_SECRETS_JSON: ${{ inputs.secrets }}
         PLAN: ${{ runner.temp }}/qbric-plan/qbric-plan.json
         WORKSPACE: ${{ inputs.workspace }}
         OUT: ${{ runner.temp }}/qbric-results

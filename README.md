@@ -10,8 +10,9 @@ out and report back; they contain no QBRIC code and download nothing.
 | Action | What it does |
 | --- | --- |
 | [`ci-callback`](ci-callback/README.md) | Tells QBRIC a run is running or finished |
-| [`plan`](plan/README.md) | Fetches the run's plan from QBRIC and hands it to the test job |
+| [`plan`](plan/README.md) | Fetches the run's plan from QBRIC, and API tests' data, and hands them to the test job |
 | [`execute`](execute/README.md) | Runs the plan in the checkout with the thin runner and uploads the results |
+| `cleanup` | Deletes the run's API test data (`qbric-data`) once the run has reported; needs `actions: write` |
 
 [`templates/qbric-ci-managed.yml`](templates/qbric-ci-managed.yml) is the workflow that wires them
 together. QBRIC commits it as `.github/workflows/qbric-ci.yml` when you press **Set up CI** in Settings →

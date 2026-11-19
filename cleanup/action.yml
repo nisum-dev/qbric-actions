@@ -1,0 +1,19 @@
+name: 'QBRIC cleanup'
+description: 'Deletes this workflow run''s qbric-data artifact (API tests'' data) once the run has reported, so the data is not kept. Needs permissions: actions: write. Never fails the job.'
+
+inputs:
+  github-token:
+    description: 'A token that may delete this run''s artifacts.'
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Delete the QBRIC test data
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PYTHONPATH: ${{ github.action_path }}/../scripts
+        SCRIPT: ${{ github.action_path }}/../scripts/qbric_ci_cleanup.py
+      run: python3 "$SCRIPT"
