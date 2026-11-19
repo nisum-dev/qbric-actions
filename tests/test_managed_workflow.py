@@ -107,6 +107,13 @@ class ManagedWorkflowTest(unittest.TestCase):
         self.assertEqual(cleanup["if"], "always()")
         self.assertIn("ci-callback", report[-2]["uses"], "the data is deleted only after the run has reported")
 
+    def test_no_action_input_text_holds_an_expression(self):
+        # GitHub evaluates ${{ }} even in an input's description, and an action cannot read the workflow's contexts
+        # (secrets, vars): the job then fails to load the action at all.
+        for action in sorted(ROOT.glob("*/action.yml")):
+            for name, spec in load(action.relative_to(ROOT)).get("inputs", {}).items():
+                self.assertNotIn("${{", str(spec.get("description", "")), f"{action.parent.name} input {name}")
+
     def test_githubs_job_limit_never_ends_a_run_before_qbrics_own_timeout_does(self):
         test = load("templates/qbric-ci-managed.yml")["jobs"]["test"]
         self.assertGreater(test["timeout-minutes"], QBRIC_MAX_TIMEOUT_MINUTES + QBRIC_WATCHDOG_SLACK_MINUTES)

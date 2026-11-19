@@ -11,7 +11,7 @@ inputs:
     required: false
     default: 'qbric-plan'
   secrets:
-    description: 'The job''s secrets as JSON (`${{ toJSON(secrets) }}`). Only the names the plan lists (API tests'' test users, which QBRIC writes to the environment before the run) reach the tests.'
+    description: 'The job''s secrets as JSON (the workflow passes toJSON(secrets)). Only the names the plan lists (API tests'' test users, which QBRIC writes to the environment before the run) reach the tests.'
     required: false
     default: '{}'
 
