@@ -18,8 +18,15 @@ XML_ATTRIBUTES = ("message", "value")  # failure and error messages, property va
 
 
 def values(plan):
-    """Every non-blank line of every variable value in the plan, longest first."""
-    lines = {line for row in plan["rows"] for v in (row.get("env") or {}).values() if v
+    """Every non-blank line of every value to hide, longest first.
+
+    A plan on QBRIC's API test model ("data") carries its secrets apart, by name ("secrets"), and only settings in its
+    rows (the service's address, a header's name, a limit): only those secrets are hidden, so a run's calls read as
+    they were sent. Any other plan may hold a password in a row, so every row value is hidden, as before.
+    """
+    secret_names = set(plan.get("secrets") or []) if plan.get("data") else None
+    lines = {line for row in plan["rows"] for k, v in (row.get("env") or {}).items()
+             if v and (secret_names is None or k in secret_names)
              for line in v.splitlines() if line.strip()}
     return sorted(lines, key=lambda v: (-len(v), v))
 

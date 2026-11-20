@@ -42,6 +42,27 @@ class RedactorTest(unittest.TestCase):
         self.assertEqual(log.read_text(), "typed ***\nnote: ***\n***\npin *** on\n",
                          "a value under four characters is left, as it is no secret")
 
+    def test_an_api_test_model_plan_hides_its_secrets_only(self):
+        plan = {"data": True, "secrets": ["QBRIC_AUTH_DEFAULT_TOKEN"],
+                "rows": [{"env": {"QBRIC_EXECUTION_BASE_URL": "https://api.stripe.com/",
+                                  "QBRIC_AUTH_TOKEN_HEADER": "Authorization", "QBRIC_PAYMENT_INTENT": "pi_3Tz8",
+                                  "QBRIC_AUTH_DEFAULT_TOKEN": "sk_test_51abc"}}]}
+        self.assertEqual(secrets.values(plan), ["sk_test_51abc"])
+        out = io.StringIO()
+        secrets.mask(plan, {"GITHUB_ACTIONS": "true"}, out)
+        self.assertEqual(out.getvalue(), "::add-mask::sk_test_51abc\n")
+        calls = self.write("target/qbric-exchanges.jsonl", json.dumps(
+            {"url": "https://api.stripe.com/v1/disputes?payment_intent=pi_3Tz8",
+             "requestHeaders": {"Authorization": "Bearer sk_test_51abc"}}) + "\n")
+        secrets.Redactor(secrets.values(plan)).tree(self.root)
+        self.assertEqual(json.loads(calls.read_text()), {
+            "url": "https://api.stripe.com/v1/disputes?payment_intent=pi_3Tz8",
+            "requestHeaders": {"Authorization": "Bearer ***"}})
+
+    def test_another_plan_still_hides_every_row_value(self):
+        plan = {"rows": [{"env": {"QBRIC_EXECUTION_BASE_URL": "https://api.stripe.com/", "QBRIC_PASSWORD": "s3cret"}}]}
+        self.assertEqual(secrets.values(plan), ["https://api.stripe.com/", "s3cret"])
+
     def test_a_calls_file_is_redacted_record_by_record(self):
         calls = self.write("target/qbric-exchanges.jsonl",
                            json.dumps({"key": "K", "url": f"https://api/x?token={PASSWORD}", "status": 200}) + "\n"
