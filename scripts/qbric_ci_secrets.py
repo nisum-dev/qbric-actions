@@ -25,10 +25,14 @@ def values(plan):
 
 
 def mask(plan, env, out):
-    """Hide every variable value in GitHub's log before anything else is printed."""
+    """Hide every variable value in GitHub's log before anything else is printed, as the files are redacted: a
+    value under four characters ("1", "on") is no secret, and GitHub would hide it in every number and word of the
+    log, and drop any step output that holds it (the checked-out commit)."""
     if env.get("GITHUB_ACTIONS") != "true":
         return
     for value in values(plan):
+        if len(value) < MIN_LENGTH:
+            continue
         out.write("::add-mask::" + value.replace("%", "%25").replace("\r", "%0D") + "\n")
     out.flush()
 

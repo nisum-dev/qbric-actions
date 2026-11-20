@@ -42,6 +42,14 @@ class RedactorTest(unittest.TestCase):
         self.assertEqual(log.read_text(), "typed ***\nnote: ***\n***\npin *** on\n",
                          "a value under four characters is left, as it is no secret")
 
+    def test_the_log_masks_the_values_the_files_redact(self):
+        out = io.StringIO()
+        secrets.mask(PLAN, {"GITHUB_ACTIONS": "true"}, out)
+        self.assertEqual(out.getvalue().splitlines(),
+                         ["::add-mask::second line", f"::add-mask::{PASSWORD}", "::add-mask::first line",
+                          "::add-mask::1234"],
+                         "a value under four characters is not masked: GitHub would hide it in every number")
+
     def test_a_json_report_keeps_its_numbers_and_shape(self):
         report = self.write(results.PLAYWRIGHT_REPORT, json.dumps({"suites": [{"file": "A.spec.ts", "specs": [
             {"title": "login", "tests": [{"status": "unexpected", "results": [
