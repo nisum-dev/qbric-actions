@@ -44,6 +44,21 @@ def clear(workspace, paths):
             target.unlink()
 
 
+def cap_lines(path, limit, out):
+    """Keeps a line-per-record file to its first whole lines within {limit} bytes, and says so when it cut it."""
+    if not path.is_file() or path.stat().st_size <= limit:
+        return
+    kept, size = [], 0
+    with path.open("rb") as source:
+        for line in source:
+            if size + len(line) > limit:
+                break
+            kept.append(line)
+            size += len(line)
+    path.write_bytes(b"".join(kept))
+    out.write(f"[qbric] {path.name} cut to its first {len(kept)} records ({size} bytes)\n")
+
+
 def keep(workspace, paths, into, out):
     """Copies the outputs that are inside the checkout; a link out of it, or inside a kept folder, is skipped."""
     into.mkdir(parents=True, exist_ok=True)

@@ -9,6 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts"))
 import qbric_ci_results as results  # noqa: E402
+import qbric_ci_paths as paths  # noqa: E402
 import qbric_ci_run as runner  # noqa: E402
 import qbric_ci_secrets as secrets  # noqa: E402
 
@@ -269,6 +270,17 @@ class PlanCheckTest(unittest.TestCase):
         self.assertEqual(lines[:2], ["::add-mask::s3%25cret", "::add-mask::line2"])
         self.assertEqual(code, runner.FAILED)
         self.assertEqual((manifest["runId"], manifest["rows"][0]["position"], manifest["maxAttempts"]), ("exec-1", 1, 1))
+
+    def test_a_calls_file_is_cut_to_whole_records_within_its_limit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            calls = pathlib.Path(folder, "qbric-exchanges.jsonl")
+            calls.write_text("".join(f'{{"key":"K{i}"}}\n' for i in range(10)))
+            out = io.StringIO()
+            paths.cap_lines(calls, 40, out)
+            self.assertEqual(calls.read_text().splitlines(), ['{"key":"K0"}', '{"key":"K1"}', '{"key":"K2"}'])
+            self.assertIn("cut to its first 3 records", out.getvalue())
+            paths.cap_lines(calls, 1000, out)
+            self.assertEqual(len(calls.read_text().splitlines()), 3, "a file within its limit is left alone")
 
     def test_nothing_is_masked_outside_github_actions(self):
         out = io.StringIO()

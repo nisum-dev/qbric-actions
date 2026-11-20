@@ -53,6 +53,8 @@ runs:
           ${{ runner.temp }}/qbric-results/manifest.json
           ${{ runner.temp }}/qbric-results/rows/*/attempt-*/qbric-out/
           ${{ runner.temp }}/qbric-results/rows/*/attempt-*/target/surefire-reports/
+          ${{ runner.temp }}/qbric-results/rows/*/attempt-*/target/qbric-karate-results.json
+          ${{ runner.temp }}/qbric-results/rows/*/attempt-*/target/qbric-exchanges.jsonl
         retention-days: 7
         overwrite: true
         if-no-files-found: warn

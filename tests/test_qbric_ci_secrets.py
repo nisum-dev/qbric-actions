@@ -42,6 +42,17 @@ class RedactorTest(unittest.TestCase):
         self.assertEqual(log.read_text(), "typed ***\nnote: ***\n***\npin *** on\n",
                          "a value under four characters is left, as it is no secret")
 
+    def test_a_calls_file_is_redacted_record_by_record(self):
+        calls = self.write("target/qbric-exchanges.jsonl",
+                           json.dumps({"key": "K", "url": f"https://api/x?token={PASSWORD}", "status": 200}) + "\n"
+                           + "not json " + PASSWORD + "\n")
+
+        self.redactor.tree(self.root)
+
+        lines = calls.read_text().splitlines()
+        self.assertEqual(json.loads(lines[0]), {"key": "K", "url": "https://api/x?token=***", "status": 200})
+        self.assertEqual(lines[1], "not json ***")
+
     def test_the_log_masks_the_values_the_files_redact(self):
         out = io.StringIO()
         secrets.mask(PLAN, {"GITHUB_ACTIONS": "true"}, out)

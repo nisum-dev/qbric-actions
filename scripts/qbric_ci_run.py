@@ -37,6 +37,10 @@ NOT_FOUND = 127
 UnusablePlan = paths.UnusablePlan
 
 
+
+EXCHANGES = "target/qbric-exchanges.jsonl"
+MAX_EXCHANGES_BYTES = 2 * 1024 * 1024  # per attempt: QBRIC reads a run's results up to 10 MB zipped, 50 MB unpacked
+
 def load(path):
     try:
         plan = json.loads(pathlib.Path(path).read_text())
@@ -172,6 +176,8 @@ def attempts_of(row, plan, workspace, out_dir, budget, out, run, sleep, state, d
         into.mkdir(parents=True, exist_ok=True)
         code, ms, timed_out = run(command, workspace, env, deadline.remaining(), into / "output.log", out)
         paths.keep(workspace, outputs, into, out)
+        # The calls the API test model's helpers wrote, with whole bodies: kept within what QBRIC imports.
+        paths.cap_lines(into / EXCHANGES, MAX_EXCHANGES_BYTES, out)
         attempt = results.read(workspace)
         redactor.tree(into)
         attempts.append({"number": number, "exitCode": code, "durationMs": ms, "timedOut": timed_out,

@@ -59,6 +59,8 @@ class Redactor:
         suffix = path.suffix.lower()
         if suffix == ".json":
             self._json(path)
+        elif suffix == ".jsonl":
+            self._jsonl(path)
         elif suffix == ".xml":
             self._xml(path)
         elif suffix in PLAIN_TEXT:
@@ -81,6 +83,21 @@ class Redactor:
         redacted = self._walk(data)
         if redacted != data:
             path.write_text(json.dumps(redacted, ensure_ascii=False), encoding="utf-8")
+
+    def _jsonl(self, path):
+        """One JSON record per line (the calls the API test model's helpers write), each kept a record."""
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            return
+        redacted = []
+        for line in lines:
+            try:
+                redacted.append(json.dumps(self._walk(json.loads(line)), ensure_ascii=False) if line.strip() else line)
+            except ValueError:
+                redacted.append(self.text(line))
+        text = "\n".join(redacted) + ("\n" if lines else "")
+        path.write_text(text, encoding="utf-8")
 
     def _walk(self, node):
         if isinstance(node, str):

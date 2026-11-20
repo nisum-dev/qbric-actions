@@ -86,6 +86,10 @@ class ManagedWorkflowTest(unittest.TestCase):
         self.assertTrue(all("/rows/" in p for p in paths[1:]), "results carry the manifest and raw outputs only")
         self.assertFalse(any("attempt-*/reports/" in p or "output.log" in p for p in paths),
                          "reports and logs go separately")
+        self.assertTrue(any(p.endswith("/target/qbric-karate-results.json") for p in paths),
+                        "a Karate run's cases come back by name")
+        self.assertTrue(any(p.endswith("/target/qbric-exchanges.jsonl") for p in paths),
+                        "an API test model run's calls come back with its results")
         self.assertTrue(all(s.get("if") == "always()" for s in uploads))
         report = next(s for s in uploads if s["with"]["name"] == "qbric-report")
         self.assertTrue(report["with"]["include-hidden-files"], "the Cucumber report lives under .qbric/")
